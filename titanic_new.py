@@ -34,6 +34,7 @@ try:
 except:
     print('Roading fail!')
 
+
 #数据分析有三个步骤
 #counting correlation 和 integration
 #首先是counting，探索性可视化，看数据
@@ -219,7 +220,7 @@ def feature_engineering():
     #新增是否有单独乘客特征，包括普通单独乘客，老人单独乘客（儿童单独乘客应该不存在如果有也应该是缺失了数据或者错误）
     df_train['IsAlone'] = 'NoAlone'
     df_train.loc[df_train['FamilySize'] == 1,'IsAlone']= 'IsAlone'
-    df_train.loc[(df_train['FamilySize'] == 1) & (df_train['Age'] > 60), 'IsSeniorAlone'] = 'IsSeniorAlone'
+    df_train.loc[(df_train['FamilySize'] == 1) & (df_train['Age'] > 60), 'IsAlone'] = 'IsSeniorAlone'
     # 画个图看一下
     Sex_Survived_1 = df_train.IsAlone[df_train.Survived == 1].value_counts()
     Sex_Survived_0 = df_train.IsAlone[df_train.Survived == 0].value_counts()
@@ -268,9 +269,10 @@ def titanic_preparation():
     dummies_FamilySize = pd.get_dummies(df_train['FamilySize'],prefix='FamilySize')
     dummies_IsAlone = pd.get_dummies(df_train['IsAlone'], prefix='IsAlone')
     dummies_Family_members = pd.get_dummies(df_train['Family_members'], prefix='Family_members')
+    dummies_Title = pd.get_dummies(df_train['Title'], prefix='Title')
     #concat别忘了 axis=1，我们是增加的新列而不是增加的新行
-    df_train = pd.concat([df_train,dummies_Embarked,dummies_Sex,dummies_Pclass,dummies_Cabin,dummies_Age_sex_class,dummies_FamilySize,dummies_IsAlone,dummies_Family_members],axis = 1)
-    df_train.drop(['Pclass','Name','Sex','Ticket','Cabin','Embarked','Age_sex_class','FamilySize','IsAlone','Family_members'],axis = 1, inplace=True)
+    df_train = pd.concat([df_train,dummies_Embarked,dummies_Sex,dummies_Pclass,dummies_Cabin,dummies_Age_sex_class,dummies_FamilySize,dummies_IsAlone,dummies_Family_members,dummies_Title],axis = 1)
+    df_train.drop(['Pclass','Name','Sex','Ticket','Cabin','Embarked','Age_sex_class','FamilySize','IsAlone','Family_members','Title'],axis = 1, inplace=True)
     #再执行数据归一化，因为age与fare数值比其他属性高一个数量级别
     #需要将其特征化到[-1,1]之间
     # 1.使用StandarScaler实例化，获得一个scaler
@@ -288,7 +290,7 @@ def titanic_preparation():
 def titanic_decision_tree_training():
     global df_train
     # 用正则取出我们所需要的属性值
-    train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
     train_np = train_df.values
     # 分割，把训练集分割为样本矩阵和分类矩阵，用矩阵存放
     Y_train_Survived = train_np[:, 0]
@@ -301,7 +303,7 @@ def titanic_decision_tree_training():
 def model_evaluating(clf):
     global df_train
     #这个函数是用来本地评估的，使用Cross Validation评估
-    all_data = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    all_data = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
     X = all_data.values[:, 1:]
     Y = all_data.values[:, 0]
     # K折交叉验证，这里需要的参数为，模型clf，X训练数据，Y标签数据，cv表示折叠10次
@@ -313,7 +315,7 @@ def Gaussian_Naive_Bayes_classification_Titanic():
     #高斯贝叶斯其实要求特征符合高斯分布，前面图片可以看出有部分符合高斯分布
     global df_train
     # 用正则取出我们所需要的属性值
-    train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
     # 分割，把训练集分割为样本矩阵和分类矩阵，用矩阵存放
     Y_train_Survived = train_np[:, 0]
     X_train_feature = train_np[:, 1:]
@@ -326,7 +328,7 @@ def Nearest_Neighbors_Classification_Titanic():
     #最近邻分类，对特征敏感，所以我这里去掉一些前面验证发现关系不大的特征SibSp和Parch
     global df_train
     # 用正则取出我们所需要的属性值
-    train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
     train_np = train_df.values
     # 分割，把训练集分割为样本矩阵和分类矩阵，用矩阵存放
     Y_train_Survived = train_np[:, 0]
@@ -341,7 +343,9 @@ def RandomForest_Titanic():
     #集成学习的随机森林分类器，这个适合多一些冗余属性，所以我们都保留
     global df_train
     # 用正则取出我们所需要的属性值
-    train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    print('检测一下数据')
+    print(train_df)
     train_np = train_df.values
     # 分割，把训练集分割为样本矩阵和分类矩阵，用矩阵存放
     Y_train_Survived = train_np[:, 0]
@@ -353,33 +357,93 @@ def RandomForest_Titanic():
 
 def test_preparation():
     #处理测试集数据，处理方法和训练集一样
-    #不过测试集缺失的不太一样，多了个Fare，用均值填充即可
+
+    #1.缺失值填充
+    #测试集缺失Age 86个，Fare 1个，Cabin 327个
+    #Fare直接均值填充，Age还是用随机森林处理，Cabin处理方式相同
     global df_test
     print(df_test.isnull().sum())
-    df_test.Age.fillna(df_test.Age.mean(), inplace=True)
+    # Fare
     df_test.Fare.fillna(df_test.Fare.mean(), inplace=True)
-    df_test.loc[(df_test.Cabin.notnull()), 'Cabin'] = 'Yes'
-    df_test.loc[(df_test.Cabin.isnull()), 'Cabin'] = 'No'
-    print(df_test.isnull().sum())
+    # Age
+    df_test_age = df_test[['Age', 'Fare', 'Parch', 'SibSp', 'Pclass']]
+    df_test_age_notnull = df_test_age.loc[(df_test['Age'].notnull())]
+    df_test_age_isnull = df_test_age.loc[(df_test['Age'].isnull())]
+    X = df_test_age_notnull.values[:, 1:]
+    Y = df_test_age_notnull.values[:, 0]
+    clf = RandomForestRegressor(n_estimators=1000, n_jobs=-1)
+    clf.fit(X, Y)
+    predict = clf.predict(df_test_age_isnull.values[:, 1:])
+    df_test.loc[df_test['Age'].isnull(), ['Age']] = predict
+    # Cabin
+    df_test.loc[(df_test.Cabin.isnull()), 'Cabin'] = 'Z'
+    df_test_Cabin_notnull = df_test.loc[(df_test['Cabin'].notnull())]
+    df_test_Cabin_notnull_str = df_test_Cabin_notnull.Cabin.astype(str).str[0]
+    df_test.loc[(df_test.Cabin.notnull(), 'Cabin')] = df_test_Cabin_notnull_str
 
+    #2.和训练集相同，新的特征
+    # Age_sex_class
+    df_test['Age_sex_class'] = 'child'
+    df_test['Age_sex_class'].loc[(df_test['Age'] > 18) & (df_test['Sex'] == 'male')] = 'man'
+    df_test['Age_sex_class'].loc[(df_test['Age'] > 18) & (df_test['Sex'] == 'female')] = 'woman'
+    df_test['Age_sex_class'].loc[(df_test['Age'] > 65)] = 'old'
+    print(df_test.Age_sex_class)
+
+    # FamilySize
+    df_test['FamilySize'] = df_test['SibSp'] + df_test['Parch'] + 1
+
+    # IsAlone
+    df_test['IsAlone'] = 'NoAlone'
+    df_test.loc[df_test['FamilySize'] == 1, 'IsAlone'] = 'IsAlone'
+    df_test.loc[(df_test['FamilySize'] == 1) & (df_test['Age'] > 60), 'IsAlone'] = 'IsSeniorAlone'
+
+    # Family_members
+    df_test['Family_members'] = 'other'
+    df_test.loc[(df_test['FamilySize'] > 1) & (df_test['Age'] < 18), 'Family_members'] = 'have_child'
+    df_test.loc[(df_test['FamilySize'] > 1) & (df_test['Age'] > 18) & (
+                df_test['Sex'] == 'male'), 'Family_members'] = 'have_male'
+    df_test.loc[(df_test['FamilySize'] > 1) & (df_test['Age'] > 60), 'Family_members'] = 'have_senior'
+    print(df_test.Family_members)
+
+    # Title
+    df_test['Title'] = df_test['Name'].str.extract('([A-Za-z]+)\.')
+    df_test['Title'] = df_test['Title'].replace(
+        ['Lady', 'Countess', 'Capt', 'Col', 'Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')
+    df_test['Title'] = df_test['Title'].replace('Mlle', 'Miss')
+    df_test['Title'] = df_test['Title'].replace('Ms', 'Miss')
+    df_test['Title'] = df_test['Title'].replace('Mme', 'Mrs')
+
+    #3.规则化
     dummies_Embarked = pd.get_dummies(df_test['Embarked'], prefix='Embarked')
     dummies_Sex = pd.get_dummies(df_test['Sex'], prefix='Sex')
     dummies_Pclass = pd.get_dummies(df_test['Pclass'], prefix='Pclass')
-    dummies_Cabin = pd.get_dummies(df_test['Cabin'],prefix='Cabin')
-    df_test = pd.concat([df_test,dummies_Embarked,dummies_Sex,dummies_Pclass,dummies_Cabin],axis = 1)
-    df_test.drop(['Pclass','Name','Sex','Ticket','Cabin','Embarked'],axis = 1, inplace=True)
+    dummies_Age_sex_class = pd.get_dummies(df_test['Age_sex_class'], prefix='Age_sex_class')
+    dummies_Cabin = pd.get_dummies(df_test['Cabin'], prefix='Cabin')
+    dummies_FamilySize = pd.get_dummies(df_test['FamilySize'], prefix='FamilySize')
+    dummies_IsAlone = pd.get_dummies(df_test['IsAlone'], prefix='IsAlone')
+    dummies_Family_members = pd.get_dummies(df_test['Family_members'], prefix='Family_members')
+    dummies_Title = pd.get_dummies(df_test['Title'],prefix='Title')
+    # concat别忘了 axis=1，我们是增加的新列而不是增加的新行
+    df_test = pd.concat([df_test, dummies_Embarked, dummies_Title, dummies_Sex, dummies_Pclass, dummies_Cabin, dummies_Age_sex_class,
+                          dummies_FamilySize, dummies_IsAlone, dummies_Family_members], axis=1)
+    df_test.drop(['Pclass', 'Name', 'Sex', 'Ticket', 'Cabin', 'Embarked', 'Age_sex_class', 'FamilySize', 'IsAlone',
+                   'Family_members','Title'], axis=1, inplace=True)
+
     scaler = preprocseeing.StandardScaler()
     Age_numpy = df_test['Age'].values
     Age_numpy_reshape = Age_numpy.reshape(-1, 1)
     df_test['Age_scaled'] = scaler.fit_transform(Age_numpy_reshape)
-
     Fare_numpy = df_test['Fare'].values
     Fare_numpy_reshape = Fare_numpy.reshape(-1, 1)
     df_test['Fare_scaled'] = scaler.fit_transform(Fare_numpy_reshape)
 
-    test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
-    print(test)
-    return test
+    df_test = df_test.filter(
+        regex='Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+
+    #因为训练集里面缺少了一种类型的Cabin，所以onehot会后缺少维度，这里补上一列
+    df_test['Cabin_T'] = 0
+    return df_test
+
 
 #主程序全过程
 #看看整体数据情况
@@ -400,26 +464,30 @@ titanic_preparation()
 print(df_train)
 #调用机器学习模型进行训练,因为直接用的全局变量，就没传参数
 #调用函数后直接返回了
-clf_decision_tree = titanic_decision_tree_training()
+"""
+#clf_decision_tree = titanic_decision_tree_training()
 #clf_Gaussion_Naive_Bayes = Gaussian_Naive_Bayes_classification_Titanic()
-clf_Nearest_Neighbors = Nearest_Neighbors_Classification_Titanic()
+#clf_Nearest_Neighbors = Nearest_Neighbors_Classification_Titanic()
+"""
 clf_RandomForest = RandomForest_Titanic()
+
 #交叉验证模型
-#model_evaluating(clf_Gaussion_Naive_Bayes)
-#print('以上是高斯朴素贝叶斯分类的交叉验证平均得分')
+"""
+model_evaluating(clf_Gaussion_Naive_Bayes)
+print('以上是高斯朴素贝叶斯分类的交叉验证平均得分')
 model_evaluating(clf_decision_tree)
 print('以上是决策树分类的交叉验证平均得分')
 model_evaluating(clf_Nearest_Neighbors)
 print('以上是最近邻分类的交叉验证平均得分')
+"""
 model_evaluating(clf_RandomForest)
 print('以上是随机森林的交叉验证平均得分')
 
 #测试集验证并生成预测结果
-"""
+#修改df_test之前先保留其原始数据，因为有PassengerID
+df_test_data = df_test
 test = test_preparation()
+print(test)
 predictions = clf_RandomForest.predict(test)
-result = pd.DataFrame({'PassengerId': df_test['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
+result = pd.DataFrame({'PassengerId': df_test_data['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
 result.to_csv("RandomForest_predictions.csv", index=False)
-
-
-"""
