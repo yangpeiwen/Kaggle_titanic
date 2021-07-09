@@ -22,11 +22,96 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LogisticRegression
 
 #机器学习模型训练后进行效果评估的包（注意不是测试集测试）
 from sklearn.model_selection import cross_validate
 from sklearn.model_selection import cross_val_score
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV,RandomizedSearchCV
+from sklearn.model_selection import  StratifiedKFold,KFold
+
+# parameters from "flamingohue"
+# https://github.com/flamingohue/KaggleTitanic/blob/main/Titanic%20Reports.ipynb
+# Random Forest parameters
+rf_params = {
+    'n_jobs': [-1],
+    'n_estimators': [100*x for x in range(1,10)],
+     'warm_start': [True],
+    'max_depth': [x for x in range(1,20)],
+    'min_samples_leaf': [x for x in range(1,100)],
+    'max_features' : ['sqrt'],
+    'verbose': [1]
+}
+
+# Extra Trees Parameters
+et_params = {
+    'n_jobs': [-1],
+    'n_estimators':[100*x for x in range(1,7)],
+    'max_features': [0.5,0.4,0.3, 0.2,0.1],
+    'max_depth': [x for x in range(1,20)],
+    'min_samples_leaf': [x for x in range(1,10)],
+    'verbose': [1]
+}
+
+# AdaBoost parameters
+ada_params = {
+    'n_estimators': [100*x for x in range(1,7)],
+    'learning_rate' : [0.25*x for x in range(1,10)]
+}
+
+# Gradient Boosting parameters
+gb_params = {
+    'n_estimators': [100*x for x in range(1,7)],
+    'max_features': [0.5,0.4,0.3, 0.2,0.1],
+    'learning_rate': [0.025,0.1, 0.05, 0.01],
+    'max_depth': [x for x in range(1,20)],
+    'min_samples_leaf': [x for x in range(1,10)],
+    'verbose': [1]
+}
+
+# Support Vector Classifier parameters
+svc_params = {
+    'kernel' : ['linear'],
+    'C' : [0.025*x for x in range(1,10)]
+    }
+
+# Logistic parameters
+# 我添加了max_iter参数，默认100不能收敛
+lr_params = {
+    'solver':['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga'],
+    'penalty' : ['l2'],
+    'C' : [0.01,0.1,0.5,1,10,100],
+    'max_iter' : [500]
+    }
+
+# KNN parameters
+knn_params = {
+    'n_jobs': [-1],
+    'n_neighbors' : [x for x in range(1,10)],
+    'weights' : ['uniform','distance'],
+    'algorithm' : ['auto','ball_tree', 'kd_tree', 'brute'],
+    'leaf_size' : [10*x for x in range(1,10)]
+    }
+
+# lightGBM parameters
+lgb_params = {
+     'n_estimators': [100*x for x in range(1,10)],
+     'num_leaves': [10*x for x in range(1,10)],
+     'learning_rate': [0.025*x for x in range(1,10)],
+    }
+
+# xgboost parameters
+xgb_params = {
+     'n_estimators': [200*x for x in range(1,10)],
+     'max_depth': [x for x in range(1,10)],
+     'min_child_weight': [10*x for x in range(1,10)],
+     'gamma':[0.9],
+     'subsample':[0.8],
+     'colsample_bytree':[0.8],
+     'objective': ['binary:logistic'],
+     'nthread': [-1],
+     'scale_pos_weight':[1]
+    }
 
 try:
     df_train= pd.read_csv('train.csv')
@@ -417,6 +502,40 @@ def RandomForest_parameter():
     #结果为max_depth 11,提升了精确度
     #现在随机森林得最佳参数为 55,11
 
+def RandomizedSearchCV_add_par(clf,params,X,Y):
+    random_search = RandomizedSearchCV(clf, param_distributions=params, n_iter=50, scoring='roc_auc', n_jobs=-1, \
+                       cv=10, random_state=0)
+    random_search.fit(X,Y)
+    best_estimator_ = random_search.best_estimator_
+    # 输出最优训练器的精度
+    print(random_search.best_score_)
+    return best_estimator_
+
+#准备用来做模型融合用的，训练一些基准模型
+def Multi_algorithm_automatic_parameter_adjustment():
+    global df_train,rf_params,et_params,ada_params,gb_params,svc_params,lr_params,knn_params,lgb_params,xgb_params
+    """Logistic Regression
+       Random Forest
+       Extra Tree
+       AdaBoost
+       Gradient Boosting
+       Support Vector Classifier
+       XgBoost
+       Light GBM
+    """
+    all_data = df_train.filter(
+        regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    X = all_data.values[:, 1:]
+    Y = all_data.values[:, 0]
+
+    skf = StratifiedKFold(n_splits=6, shuffle=True, random_state=0)
+    #Logistic Regression
+    print('best_estimator_Logistic_Regression accuracy')
+    clf_Logistic_Regression = LogisticRegression()
+    best_estimator_Logistic_Regression = RandomizedSearchCV_add_par(clf_Logistic_Regression,lr_params,X,Y)
+
+    return best_estimator_Logistic_Regression
+
 def test_preparation():
     #处理测试集数据，处理方法和训练集一样
 
@@ -485,9 +604,11 @@ def test_preparation():
     dummies_IsAlone = pd.get_dummies(df_test['IsAlone'], prefix='IsAlone')
     dummies_Family_members = pd.get_dummies(df_test['Family_members'], prefix='Family_members')
     dummies_Title = pd.get_dummies(df_test['Title'],prefix='Title')
+    # 因为测试集里面缺少了一种类型的Cabin，所以onehot会后缺少维度，这里补上一列
+    dummies_Cabin.insert(7,'Cabin_T',np.zeros(418,int))
     # concat别忘了 axis=1，我们是增加的新列而不是增加的新行
-    df_test = pd.concat([df_test, dummies_Embarked, dummies_Title, dummies_Sex, dummies_Pclass, dummies_Cabin, dummies_Age_sex_class,
-                          dummies_FamilySize, dummies_IsAlone, dummies_Family_members], axis=1)
+    df_test = pd.concat([df_test, dummies_Embarked, dummies_Sex, dummies_Pclass, dummies_Cabin, dummies_Age_sex_class,
+                          dummies_FamilySize, dummies_IsAlone, dummies_Family_members, dummies_Title], axis=1)
     df_test.drop(['Pclass', 'Name', 'Sex', 'Ticket', 'Cabin', 'Embarked', 'Age_sex_class', 'FamilySize', 'IsAlone',
                    'Family_members','Title'], axis=1, inplace=True)
 
@@ -499,12 +620,10 @@ def test_preparation():
     Fare_numpy_reshape = Fare_numpy.reshape(-1, 1)
     df_test['Fare_scaled'] = scaler.fit_transform(Fare_numpy_reshape)
 
-    df_test = df_test.filter(
+    test = df_test.filter(
         regex='Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
 
-    #因为训练集里面缺少了一种类型的Cabin，所以onehot会后缺少维度，这里补上一列
-    df_test['Cabin_T'] = 0
-    return df_test
+    return test
 
 def Model_evaluation(clf):
     global df_train
@@ -543,6 +662,8 @@ feature_engineering()
 titanic_preparation()
 #看一下处理后的训练集情况
 print(df_train)
+
+"""
 #调用机器学习模型进行训练,因为直接用的全局变量，就没传参数
 #调用函数后直接返回了
 
@@ -567,14 +688,18 @@ Model_evaluation(clf_RandomForest)
 #RandomForest_parameter()
 #随机森林最佳参数n_estimators = 55,max_depth = 11
 
+"""
+
+Clf_Lr = Multi_algorithm_automatic_parameter_adjustment()
+model_evaluating(Clf_Lr)
+
 #测试集验证并生成预测结果
 #修改df_test之前先保留其原始数据，因为有PassengerID
-df_test_data = df_test
 test = test_preparation()
 print(test)
-predictions = clf_RandomForest.predict(test)
-result = pd.DataFrame({'PassengerId': df_test_data['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
-result.to_csv("RandomForest_predictions.csv", index=False)
+predictions = Clf_Lr.predict(test)
+result = pd.DataFrame({'PassengerId': df_test['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
+result.to_csv("LogisRe_predictions.csv", index=False)
 """
 predictions = clf_Nearest_Neighbors.predict(test)
 result = pd.DataFrame({'PassengerId': df_test_data['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
