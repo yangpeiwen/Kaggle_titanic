@@ -25,6 +25,8 @@ from sklearn.ensemble import RandomForestRegressor
 
 #机器学习模型训练后进行效果评估的包（注意不是测试集测试）
 from sklearn.model_selection import cross_validate
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
 
 try:
     df_train= pd.read_csv('train.csv')
@@ -307,8 +309,9 @@ def model_evaluating(clf):
     X = all_data.values[:, 1:]
     Y = all_data.values[:, 0]
     # K折交叉验证，这里需要的参数为，模型clf，X训练数据，Y标签数据，cv表示折叠10次
-    evaluating_result_scores = cross_validate(clf, X, Y, cv=10)
+    evaluating_result_scores = cross_validate(clf, X, Y, cv=10,return_train_score = 1)
     print(evaluating_result_scores)
+    print(np.mean(evaluating_result_scores['train_score']))
     print(np.mean(evaluating_result_scores['test_score']))
 
 def Gaussian_Naive_Bayes_classification_Titanic():
@@ -316,6 +319,7 @@ def Gaussian_Naive_Bayes_classification_Titanic():
     global df_train
     # 用正则取出我们所需要的属性值
     train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    train_np = train_df.values
     # 分割，把训练集分割为样本矩阵和分类矩阵，用矩阵存放
     Y_train_Survived = train_np[:, 0]
     X_train_feature = train_np[:, 1:]
@@ -325,7 +329,7 @@ def Gaussian_Naive_Bayes_classification_Titanic():
     return clf
 
 def Nearest_Neighbors_Classification_Titanic():
-    #最近邻分类，对特征敏感，所以我这里去掉一些前面验证发现关系不大的特征SibSp和Parch
+    #最近邻分类，对特征敏感
     global df_train
     # 用正则取出我们所需要的属性值
     train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
@@ -340,7 +344,7 @@ def Nearest_Neighbors_Classification_Titanic():
     return clf
 
 def RandomForest_Titanic():
-    #集成学习的随机森林分类器，这个适合多一些冗余属性，所以我们都保留
+    #集成学习的随机森林分类器，这个适合多一些冗余属性
     global df_train
     # 用正则取出我们所需要的属性值
     train_df = df_train.filter(regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
@@ -350,10 +354,68 @@ def RandomForest_Titanic():
     # 分割，把训练集分割为样本矩阵和分类矩阵，用矩阵存放
     Y_train_Survived = train_np[:, 0]
     X_train_feature = train_np[:, 1:]
-    clf = RandomForestClassifier()
+    clf = RandomForestClassifier(n_estimators = 55,max_depth = 11,random_state=90)
     clf = clf.fit(X_train_feature, Y_train_Survived)
 
     return clf
+def RandomForest_parameter():
+    # 调参，绘制学习曲线来调参n_estimators（对随机森林影响最大）
+    score_lt = []
+    # 每隔10步建立一个随机森林，获得不同n_estimators的得分
+    # 这个函数是用来本地评估的，使用Cross Validation评估
+    all_data = df_train.filter(
+        regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    X = all_data.values[:, 1:]
+    Y = all_data.values[:, 0]
+    # K折交叉验证，这里需要的参数为，模型clf，X训练数据，Y标签数据，cv表示折叠10次
+    # 下面第一次运行时，大概61颗子树最好，所以这里先注释掉，继续缩小参数范围
+    """
+    for i in range(0, 300, 10):
+        rfc = RandomForestClassifier(n_estimators=i + 1
+                                     , random_state=90)
+        score = cross_val_score(rfc, X, Y, cv=10).mean()
+        score_lt.append(score)
+    score_max = max(score_lt)
+    print('最大得分：{}'.format(score_max),
+          '子树数量为：{}'.format(score_lt.index(score_max) * 10 + 1))
+    # 绘制学习曲线
+    x = np.arange(1, 300, 10)
+    plt.subplot(111)
+    plt.plot(x, score_lt, 'r-')
+    plt.show()
+    """
+    # 在61附近缩小n_estimators的范围为51-71
+    score_lt = []
+    for i in range(51, 71):
+        rfc = RandomForestClassifier(n_estimators=i
+                                     , random_state=90)
+        score = cross_val_score(rfc, X, Y, cv=10).mean()
+        score_lt.append(score)
+    score_max = max(score_lt)
+    print('最大得分：{}'.format(score_max),
+          '子树数量为：{}'.format(score_lt.index(score_max) + 30))
+
+    # 绘制学习曲线
+    x = np.arange(51, 71)
+    plt.subplot(111)
+    plt.plot(x, score_lt, 'o-')
+    plt.show()
+    # 子树55时最大
+
+    #接下来减小复杂度调节深度
+    # 建立n_estimators为45的随机森林
+    rfc = RandomForestClassifier(n_estimators=55, random_state=90)
+
+    # 用网格搜索调整max_depth
+    param_grid = {'max_depth': np.arange(1, 20)}
+    GS = GridSearchCV(rfc, param_grid, cv=10)
+    GS.fit(X, Y)
+
+    best_param = GS.best_params_
+    best_score = GS.best_score_
+    print(best_param, best_score)
+    #结果为max_depth 11,提升了精确度
+    #现在随机森林得最佳参数为 55,11
 
 def test_preparation():
     #处理测试集数据，处理方法和训练集一样
@@ -444,6 +506,25 @@ def test_preparation():
     df_test['Cabin_T'] = 0
     return df_test
 
+def Model_evaluation(clf):
+    global df_train
+    #这个函数将模型中的特征重要性打印输出
+    all_data = df_train.filter(
+        regex='Survived|Age_.*|Age_sex_class_.*|Cabin_.*|Title_.*|FamilySize_.*|IsAlone_.*|Family_members_.*|SibSp|Parch|Fare_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    X = all_data.values[:, 1:]
+    Y = all_data.values[:, 0]
+    #获取模型输入特征的名字的矩阵
+    X_name = all_data.columns[1:]
+    #获取模型的特征重要性
+    eva = clf.feature_importances_
+    print('X_name')
+    print(X_name)
+    print('feature_importances')
+    print(eva)
+    #然后将前面两个矩阵映射为字典
+    feature_map_dict = dict(zip(X_name,eva))
+    #按照特征重要性大小排序输出
+    print(sorted(feature_map_dict.items(), key = lambda kv:(kv[1], kv[0])))
 
 #主程序全过程
 #看看整体数据情况
@@ -464,24 +545,27 @@ titanic_preparation()
 print(df_train)
 #调用机器学习模型进行训练,因为直接用的全局变量，就没传参数
 #调用函数后直接返回了
-"""
-#clf_decision_tree = titanic_decision_tree_training()
-#clf_Gaussion_Naive_Bayes = Gaussian_Naive_Bayes_classification_Titanic()
-#clf_Nearest_Neighbors = Nearest_Neighbors_Classification_Titanic()
-"""
+
+clf_decision_tree = titanic_decision_tree_training()
+clf_Gaussion_Naive_Bayes = Gaussian_Naive_Bayes_classification_Titanic()
+clf_Nearest_Neighbors = Nearest_Neighbors_Classification_Titanic()
 clf_RandomForest = RandomForest_Titanic()
 
 #交叉验证模型
-"""
+
 model_evaluating(clf_Gaussion_Naive_Bayes)
 print('以上是高斯朴素贝叶斯分类的交叉验证平均得分')
 model_evaluating(clf_decision_tree)
 print('以上是决策树分类的交叉验证平均得分')
 model_evaluating(clf_Nearest_Neighbors)
 print('以上是最近邻分类的交叉验证平均得分')
-"""
 model_evaluating(clf_RandomForest)
 print('以上是随机森林的交叉验证平均得分')
+
+Model_evaluation(clf_RandomForest)
+#随机森林调参：
+#RandomForest_parameter()
+#随机森林最佳参数n_estimators = 55,max_depth = 11
 
 #测试集验证并生成预测结果
 #修改df_test之前先保留其原始数据，因为有PassengerID
@@ -491,3 +575,8 @@ print(test)
 predictions = clf_RandomForest.predict(test)
 result = pd.DataFrame({'PassengerId': df_test_data['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
 result.to_csv("RandomForest_predictions.csv", index=False)
+"""
+predictions = clf_Nearest_Neighbors.predict(test)
+result = pd.DataFrame({'PassengerId': df_test_data['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
+result.to_csv("Nearest_Neighbors_predictions.csv", index=False)
+"""
