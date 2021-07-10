@@ -23,6 +23,9 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import ExtraTreesClassifier
 
 #机器学习模型训练后进行效果评估的包（注意不是测试集测试）
 from sklearn.model_selection import cross_validate
@@ -534,7 +537,40 @@ def Multi_algorithm_automatic_parameter_adjustment():
     clf_Logistic_Regression = LogisticRegression()
     best_estimator_Logistic_Regression = RandomizedSearchCV_add_par(clf_Logistic_Regression,lr_params,X,Y)
 
-    return best_estimator_Logistic_Regression
+    #Random_Forest
+    print('best_estimator_Random_Forest accuracy')
+    clf_Random_Forest = RandomForestClassifier()
+    best_estimator_Random_Forest = RandomizedSearchCV_add_par(clf_Random_Forest,rf_params,X,Y)
+
+    #Extra_Trees
+    print('best_estimator_Extra_Trees accuracy')
+    clf_Extra_Trees = ExtraTreesClassifier()
+    best_estimator_Extra_Trees = RandomizedSearchCV_add_par(clf_Extra_Trees, et_params, X, Y)
+
+    #AdaBoost
+    print('best_estimator_AdaBoost accuracy')
+    clf_AdaBoost = AdaBoostClassifier()
+    best_estimator_AdaBoost = RandomizedSearchCV_add_par(clf_AdaBoost, ada_params, X, Y)
+
+    #gradient boost
+    print('best_estimator_gradient boost accuracy')
+    clf_gradient_boost = GradientBoostingClassifier()
+    best_estimator_gradient_boost = RandomizedSearchCV_add_par(clf_gradient_boost, gb_params, X, Y)
+
+    # svc
+    print('best_estimator_svm boost accuracy')
+    clf_svc = svm.SVC()
+    best_estimator_svc = RandomizedSearchCV_add_par(clf_svc, svc_params, X, Y)
+
+    # KNeighbors
+    print('best_estimator_KNeighbors accuracy')
+    clf_KNeighbors = KNeighborsClassifier()
+    best_estimator_KNeighbors = RandomizedSearchCV_add_par(clf_KNeighbors, knn_params, X, Y)
+
+
+    return (best_estimator_Logistic_Regression,best_estimator_Random_Forest,
+            best_estimator_Extra_Trees,best_estimator_AdaBoost,best_estimator_gradient_boost,
+            best_estimator_svc,best_estimator_KNeighbors)
 
 def test_preparation():
     #处理测试集数据，处理方法和训练集一样
@@ -689,10 +725,19 @@ Model_evaluation(clf_RandomForest)
 #随机森林最佳参数n_estimators = 55,max_depth = 11
 
 """
+best_estimator_Logistic_Regression,best_estimator_Random_Forest,\
+best_estimator_Extra_Trees,best_estimator_AdaBoost,\
+best_estimator_gradient_boost,best_estimator_svc,best_estimator_KNeighbors = Multi_algorithm_automatic_parameter_adjustment()
 
-Clf_Lr = Multi_algorithm_automatic_parameter_adjustment()
-model_evaluating(Clf_Lr)
+model_evaluating(best_estimator_Logistic_Regression)
+model_evaluating(best_estimator_Random_Forest)
+model_evaluating(best_estimator_Extra_Trees)
+model_evaluating(best_estimator_AdaBoost)
+model_evaluating(best_estimator_gradient_boost)
+model_evaluating(best_estimator_svc)
+model_evaluating(best_estimator_KNeighbors)
 
+"""
 #测试集验证并生成预测结果
 #修改df_test之前先保留其原始数据，因为有PassengerID
 test = test_preparation()
@@ -700,7 +745,6 @@ print(test)
 predictions = Clf_Lr.predict(test)
 result = pd.DataFrame({'PassengerId': df_test['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
 result.to_csv("LogisRe_predictions.csv", index=False)
-"""
 predictions = clf_Nearest_Neighbors.predict(test)
 result = pd.DataFrame({'PassengerId': df_test_data['PassengerId'].values, 'Survived': predictions.astype(np.int32)})
 result.to_csv("Nearest_Neighbors_predictions.csv", index=False)
